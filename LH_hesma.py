@@ -11,7 +11,7 @@ from pylh import rainbow_array
 import requests
 import glob
 from getpass import getpass
-from os import getcwd
+import os
 import base64
 from lxml import html
 
@@ -34,7 +34,7 @@ if len(creds) == 0:
 	username = input('HESMA Username: ')
 	password = getpass('HESMA Password: ')
 	print('')
-	root_path = getcwd()
+	root_path = os.getcwd()
 
 	with open('./.HESMA_credentials', 'w') as file:
 		file.write( str(base64.b64encode(username.encode("utf-8"))) + ' \n')
@@ -58,6 +58,18 @@ with open('./.HESMA_credentials', 'r') as file:
 	payload['p'] = base64.b64decode(pw[2:len(pw)-1]).decode("utf-8")
 
 	root_path = lines[2].split(sep = ' ')[0]
+
+#Check for relevant folders
+if len(glob.glob(root_path + '/spectra/')) == 0:
+	os.makedirs('./spectra')
+if len(glob.glob(root_path + '/density/')) == 0:
+	os.makedirs('./density')
+if len(glob.glob(root_path + '/isotopes/')) == 0:
+	os.makedirs('./isotopes')
+if len(glob.glob(root_path + '/lightcurve/')) == 0:
+	os.makedirs('./lightcurve')
+if len(glob.glob(root_path + '/lightcurves_early/')) == 0:
+	os.makedirs('./lightcurves_early')
 
 def download_HESMA_data(model_name, get_time = False):
 	login_url = 'https://hesma.h-its.org/doku.php?id=start&do=login&sectok='
@@ -150,13 +162,57 @@ class UBVR():
 		self.R = lc()
 
 class spectra():
-	def __init__(self):
+	def __init__(self, model_name = None):
 		self.epochs = []
 		self.spectra = {}
 		self.wl = []
 
+		self.model_name = model_name
+
+	def plot(self, num_spec = None):
+		try:
+			#File check - this should fail if there is no imported isotopes file and trigger the exception
+			check = self.epochs[0]	
+
+			if num_spec == None:
+				num_spec = 13
+	
+			colours = rainbow_array(num_spec)	
+			fig = plt.figure(figsize = (12, 10))
+			#Plotting the spectra
+			for i in range(len(self.epochs)):
+				#plt.plot(self.spectra[self.spectra_epochs[i]].wl, np.array(self.spectra[self.spectra_epochs[i]].flux) + i/10, label = str(self.spectra_epochs[i]) + ' days')
+				plt.plot(self.wl, np.array(self.spectra[self.epochs[i]].flux) + i/10, label = str(self.epochs[i]) + ' days', color = colours[i%num_spec], linewidth = 2)	
+				#Setting plot properties and displaying each of the figures
+				if (i+1)%num_spec == 0:
+					plt.xlabel(r'Wavelength ($\AA$)')
+					plt.ylabel('Flux + offset')
+					plt.legend()
+					if self.model_name != None:
+						plt.title(self.model_name + ' Spectra')
+					else:
+						plt.title('Spectra')
+					plt.tight_layout()
+					plt.show()
+					if i != len(self.epochs)-1:
+						fig = plt.figure(figsize = (12, 10))	
+			#Backup formatting and display call in case the number of epochs doesn't divide by 4, 5, 6, 7, or 10
+			if (i+1)%num_spec != 0:
+				plt.xlabel(r'Wavelength ($\AA$)')
+				plt.ylabel('Flux + offset')
+				plt.legend()
+				if self.model_name != None:
+					plt.title(self.model_name + ' Spectra')
+				else:
+					plt.title('Spectra')
+				plt.tight_layout()
+				plt.show()
+
+		except:
+			print(text.RED + 'No associated spectra.dat file' + text.END)
+
 class isotopes():
-	def __init__(self):
+	def __init__(self, model_name = None):
 		self.isotopes = []
 		self.elements = []
 		self.velocity = []
@@ -165,20 +221,253 @@ class isotopes():
 		self.isotopes_data = {}
 		self.elements_data = {}
 
+		self.model_name = model_name
+
+	def plot_isotopes(self, isotopes = ['c12', 'o16', 'si28', 'ni56'] ):
+		try:
+			#File check - this should fail if there is no imported isotopes file and trigger the exception
+			check = self.velocity[0]
+
+			#Establishing the colours array and creating the figure
+			colours = rainbow_array(len(isotopes))
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+	
+			#Plotting each of the element profiles
+			for l in range(len(isotopes)):
+				ax.plot(self.velocity, self.isotopes_data[isotopes[l]].profile, label = isotopes[l], color = colours[l], linewidth = 2)
+	
+			#Setting figure parameters
+			plt.legend()
+			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
+			plt.ylabel('Mass fraction')
+			plt.ylim(0, 1)
+			if self.model_name != None:
+				plt.title(self.model_name + ' Isotopic Abundances')
+			else:
+				plt.title('Isotopic Abundances')
+			plt.gca().set_xlim(left=0)
+			plt.tight_layout()
+			plt.show()
+		except:
+			#Exception should only display when there has not been a isotopes file imported to the instance of the class
+			print(text.RED + 'No associated isotopes.dat file' + text.END)
+
+	def plot_elements(self, elements = ['c', 'o', 'na', 'mg', 'si', 's', 'ca', 'ti', 'cr', 'fe', 'ni']):
+		try:
+			#File check - this should fail if there is no imported isotopes file and trigger the exception
+			check = self.velocity[0]
+
+			#Establishing the colours array and creating the figure
+			colours = rainbow_array(len(elements))
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+	
+			#Plotting each of the element profiles
+			for l in range(len(elements)):
+				ax.plot(self.velocity, self.elements_data[elements[l]].profile, label = elements[l], color = colours[l], linewidth = 2)
+	
+			#Setting figure parameters
+			plt.legend()
+			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
+			plt.ylabel('Mass fraction')
+			plt.ylim(0, 1)
+			if self.model_name != None:
+				plt.title(self.model_name + ' Elemental Abundances')
+			else:
+				plt.title('Elemental Abundances')
+			plt.gca().set_xlim(left=0)
+			plt.tight_layout()
+			plt.show()
+		except:
+			print(text.RED + 'No associated isotopes.dat file' + text.END)
+
+	def export2zygon(self, filename, elements = ['c', 'o', 'na', 'mg', 'si', 's', 'ca', 'ti', 'cr', 'fe', 'ni'], shells = 30):
+		try:
+			#File check - this should fail if there is no imported isotopes file and trigger the exception
+			check = self.velocity[0]
+
+			write_vel = np.linspace(np.amin(self.velocity), np.amax(self.velocity), shells)
+
+			elements_write = {}
+			for elem in elements:
+				elements_write[elem] = species()
+				elements_write[elem].profile = np.interp(write_vel, self.velocity, self.elements_data[elem].profile)
+
+			with open('FULL_ABUND_' + str(filename), 'w') as file:
+				file.write('Index ')
+				for elem in elements:
+					file.write(str(elem) + ' ')
+				file.write('\n' + str( np.amin(self.velocity) ) + ' ' + str( np.amax(self.velocity) ) + ' \n')
+
+				for i in range(shells):
+					file.write(str(i) + ' ')
+					for elem in elements:
+						file.write(str(elements_write[elem].profile[i]) + ' ')
+
+					file.write('\n')
+
+	
+		except:
+			print(text.RED + 'No associated isotopes.dat file' + text.END)
+
 class lightcurve():
-	def __init__(self):
+	def __init__(self, model_name = None):
 		self.lc = lc()
 		self.epochs = []
 
+		self.model_name = model_name
+
+	def plot(self):
+		try:
+			#File check - this should fail if there is no imported lightcurve file and trigger the exception
+			check = self.epochs[0]
+
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+			ax.plot(self.epochs, self.lc.lum, color = '#C70039', linewidth = 2)
+	
+			plt.xlabel('Days relative to explosion')
+			plt.ylabel(r'Luminosity ($erg$ $s^{-1}$)')
+			if self.model_name != None:
+				plt.title(self.model_name + ' UVOIR Lightcurve')
+			else:
+				plt.title('UVOIR Lightcurve')
+			plt.tight_layout()
+			plt.show()
+
+		except:
+			#Exception should only display when there has not been a lightcurve file imported to the instance of the class
+			print(text.RED + 'No associated lightcurve.dat file' + text.END)
+			return
+
 class lightcurves_early():
-	def __init__(self):
+	def __init__(self, model_name = None):
 		self.UBVR = UBVR()
 		self.epochs = []
 
+		self.model_name = model_name
+
+	def plot(self):
+		try:
+			check = self.epochs[0]
+
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+	
+			ax.plot(self.epochs, self.UBVR.U.AB, color = U_colour, label = 'U')
+			ax.plot(self.epochs, self.UBVR.B.AB, color = B_colour, label = 'B')
+			ax.plot(self.epochs, self.UBVR.V.AB, color = V_colour, label = 'V')
+			ax.plot(self.epochs, self.UBVR.R.AB, color = R_colour, label = 'R')
+	
+			plt.gca().invert_yaxis()
+			plt.xlabel('Days since explosion')
+			plt.ylabel('Absolute AB magnitude')
+			if self.model_name != None:
+				plt.title(self.model_name + ' Early Lightcurves')
+			else:
+				plt.title('Early Lightcurves')
+			plt.tight_layout()
+			plt.legend()
+			plt.show()
+		except:
+			#Exception should only display when there has not been an early lightcurves file imported to the instance of the class
+			print(text.RED + 'No associated lightcurves_early.dat file' + text.END)
+			return
+
 class density():
-	def __init__(self):
+	def __init__(self, model_name):
 		self.velocity = []
 		self.density = []
+		self.radius0 = []
+
+		self.model_name = model_name
+
+	def plot(self):
+		try:
+			check = self.velocity[0]
+
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+
+			ax.plot(self.velocity, self.density, color = '#00B759')
+
+			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
+			plt.ylabel(r'Density ($g$ $cm^{-3}$)')
+			if self.model_name != None:
+				plt.title(self.model_name + ' Density')
+			else:
+				plt.title('Density')
+			plt.tight_layout()
+			plt.show()
+
+		except:
+			#Exception should only display when there has not been a density file imported to the instance of the class
+			print(text.RED + 'No associated density.dat file' + text.END)
+			return
+
+	def plot_epoch(self, day):
+		try:
+			check = self.velocity[0]
+			check = self.radius0[0]
+
+			t = day * 24*3600
+			sf = []
+
+			for i in range(len(self.radius0)):
+				sf.append( (self.radius0[i])**3/(self.radius0[i] + t*self.velocity[i])**3 )
+
+			new_density = []
+			for i in range(len(self.density)):
+				new_density.append(self.density[i] * sf[i])
+
+			fig = plt.figure(figsize = (12, 6))
+			ax = fig.add_subplot(1, 1, 1)
+
+			ax.plot(self.velocity, new_density, color = '#9B00C1')
+
+			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
+			plt.ylabel(r'Density ($g$ $cm^{-3}$)')
+			if self.model_name != None:
+				plt.title(self.model_name + ' Density')
+			else:
+				plt.title('Density')
+			plt.tight_layout()
+			plt.show()
+
+		except:
+			#Exception should only display when there has not been a density file imported to the instance of the class or the assingment of radius0 has gone wrong
+			print(text.RED + 'No associated density.dat file or there has been an issue callibrating the inital radii' + text.END)
+			return
+
+	def export2zygon(self, filename, day, shells = 30):
+		try:
+			check = self.velocity[0]
+			check = self.radius0[0]
+
+			t = day * 24*3600
+			sf = []
+
+			for i in range(len(self.radius0)):
+				sf.append( (self.radius0[i])**3/(self.radius0[i] + t*self.velocity[i])**3 )
+
+			new_density = []
+			for i in range(len(self.density)):
+				new_density.append(self.density[i] * sf[i])
+
+			vel_write = np.linspace(np.amin(self.velocity), np.amax(self.velocity), shells+1)
+			den_write = np.interp(vel_write, self.velocity, new_density)
+			
+			with open('FULL_DEN_' + str(filename), 'w') as file:
+				file.write(str(day) + ' day\n\n')
+
+				for i in range(shells+1):
+					file.write(str(i) + ' ' + str(vel_write[i]) + ' ' + str(den_write[i]) + ' \n')
+
+		except:
+			#Exception should only display when there has not been a density file imported to the instance of the class or the assingment of radius0 has gone wrong
+			print(text.RED + 'No associated density.dat file or there has been an issue callibrating the inital radii' + text.END)
+			return
 
 #█░█ █▀▀ █▀ █▀▄▀█ ▄▀█   █▀▀ █░░ ▄▀█ █▀ █▀
 #█▀█ ██▄ ▄█ █░▀░█ █▀█   █▄▄ █▄▄ █▀█ ▄█ ▄█
@@ -230,7 +519,6 @@ class HESMA_model():
 			for i in time_line.split(sep = ' '):
 				try:
 					time = float(i)
-					print(i)
 					break
 				except:
 					continue
@@ -241,7 +529,7 @@ class HESMA_model():
 	#█▀▄ ██▄ █▀█ █▄▀
 
 	def spectra_read(self, spectra_file):
-		self.spectra = spectra()
+		self.spectra = spectra(self.model_name)
 		#Reading in the lines from the .dat file
 		with open(spectra_file, 'r') as file:
 			lines = file.readlines()
@@ -263,7 +551,7 @@ class HESMA_model():
 				self.spectra.spectra[self.spectra.epochs[i-1]].flux.append(line[i])
 
 	def isotopes_read(self, isotopes_file):
-		self.isotopes = isotopes()
+		self.isotopes = isotopes(self.model_name)
 		#Reading in the lines from the .dat file
 		with open(isotopes_file, 'r') as file:
 			lines = file.readlines()
@@ -295,7 +583,7 @@ class HESMA_model():
 				self.isotopes.elements_data[extract_element(self.isotopes.isotopes[h])].profile[k] += line[h+2]
 
 	def lightcurve_read(self, lightcurve_file):
-		self.lightcurve = lightcurve()
+		self.lightcurve = lightcurve(self.model_name)
 		with open(lightcurve_file, 'r') as file:
 			for i in file.readlines():
 				line = remove_empty_entries(i.split(sep = ' '), floats = True)
@@ -303,7 +591,7 @@ class HESMA_model():
 				self.lightcurve.lc.lum.append(line[1])
 
 	def lightcurves_early_read(self, lightcurves_early_file):
-		self.lightcurves_early = lightcurves_early()
+		self.lightcurves_early = lightcurves_early(self.model_name)
 
 		with open(lightcurves_early_file, 'r') as file:
 			for i in file.readlines()[1:]:
@@ -315,7 +603,7 @@ class HESMA_model():
 				self.lightcurves_early.UBVR.R.AB.append(line[4])
 
 	def density_read(self, density_file):
-		self.density = density()
+		self.density = density(self.model_name)
 		with open(density_file, 'r') as file:
 			for j in file.readlines()[1:]:
 				vel0, den0 = remove_empty_entries(j.split(sep = ' '), floats = True)
@@ -325,237 +613,12 @@ class HESMA_model():
 		try:
 			check = self.time
 
-			self.density.radius0 = []
 			for vel in self.density.velocity:
 				self.density.radius0.append(self.time * vel)
 
 		except:
 			return
-
-	#█▀█ █░░ █▀█ ▀█▀
-	#█▀▀ █▄▄ █▄█ ░█░
-
-	def spectra_plot(self, num_spec = None):
-		try:
-			#File check - this should fail if there is no imported isotopes file and trigger the exception
-			check = self.spectra.epochs[0]	
-			#Deciding how many spectra to plot in each figure
-			"""
-			if num_spec == None:
-				num_spec = 10
-				cf_checks = [7, 6, 5, 4]
-				for l in cf_checks:
-					if len(self.spectra_epochs)%l == 0:
-						num_spec = l
-						break
-			"""
-			if num_spec == None:
-				num_spec = 13
 	
-			colours = rainbow_array(num_spec)	
-			fig = plt.figure(figsize = (12, 10))
-			#Plotting the spectra
-			for i in range(len(self.spectra.epochs)):
-				#plt.plot(self.spectra[self.spectra_epochs[i]].wl, np.array(self.spectra[self.spectra_epochs[i]].flux) + i/10, label = str(self.spectra_epochs[i]) + ' days')
-				plt.plot(self.spectra.wl, np.array(self.spectra.spectra[self.spectra.epochs[i]].flux) + i/10, label = str(self.spectra.epochs[i]) + ' days', color = colours[i%num_spec], linewidth = 2)	
-				#Setting plot properties and displaying each of the figures
-				if (i+1)%num_spec == 0:
-					plt.xlabel(r'Wavelength ($\AA$)')
-					plt.ylabel('Flux + offset')
-					plt.legend()
-					if self.model_name != None:
-						plt.title(self.model_name + ' Spectra')
-					else:
-						plt.title('Spectra')
-					plt.tight_layout()
-					plt.show()
-					if i != len(self.spectra.epochs)-1:
-						fig = plt.figure(figsize = (12, 10))	
-			#Backup formatting and display call in case the number of epochs doesn't divide by 4, 5, 6, 7, or 10
-			if (i+1)%num_spec != 0:
-				plt.xlabel(r'Wavelength ($\AA$)')
-				plt.ylabel('Flux + offset')
-				plt.legend()
-				if self.model_name != None:
-					plt.title(self.model_name + ' Spectra')
-				else:
-					plt.title('Spectra')
-				plt.tight_layout()
-				plt.show()
-
-		except:
-			#Exception should only display when there has not been a spectrum file imported to the instance of the class
-			print(text.RED + 'No associated spectra.dat file' + text.END)
-
-	def elements_plot(self, elements = ['c', 'o', 'mg', 'si', 's', 'ca', 'fe', 'ni']):
-		try:
-			#File check - this should fail if there is no imported isotopes file and trigger the exception
-			check = self.isotopes.velocity[0]
-
-			#Establishing the colours array and creating the figure
-			colours = rainbow_array(len(elements))
-			fig = plt.figure(figsize = (12, 6))
-			ax = fig.add_subplot(1, 1, 1)
-	
-			#Plotting each of the element profiles
-			for l in range(len(elements)):
-				ax.plot(self.isotopes.velocity, self.isotopes.elements_data[elements[l]].profile, label = elements[l], color = colours[l], linewidth = 2)
-	
-			#Setting figure parameters
-			plt.legend()
-			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
-			plt.ylabel('Mass fraction')
-			plt.ylim(0, 1)
-			if self.model_name != None:
-				plt.title(self.model_name + ' Elemental Abundances')
-			else:
-				plt.title('Elemental Abundances')
-			plt.gca().set_xlim(left=0)
-			plt.tight_layout()
-			plt.show()
-		except:
-			#Exception should only display when there has not been a spectrum file imported to the instance of the class
-			print(text.RED + 'No associated isotopes.dat file' + text.END)
-
-	def isotopes_plot(self, isotopes = ['c12', 'o16', 'si28', 'ni56'], add_isotopes = None):
-		try:
-			#File check - this should fail if there is no imported isotopes file and trigger the exception
-			check = self.isotopes.velocity[0]
-
-		except:
-			#Exception should only display when there has not been a isotopes file imported to the instance of the class
-			print(text.RED + 'No associated isotopes.dat file' + text.END)
-			return
-
-		try:
-			#Adding any isotopes to the 4 default
-			if add_isotopes != None:
-				for i in add_isotopes:
-					try:
-						isotopes.append(i)
-					except:
-						print(str(i) + ' is not valid')
-
-			#Establishing the colours array and creating the figure
-			colours = rainbow_array(len(isotopes))
-			fig = plt.figure(figsize = (12, 6))
-			ax = fig.add_subplot(1, 1, 1)
-	
-			#Plotting each of the element profiles
-			for l in range(len(isotopes)):
-				ax.plot(self.isotopes.velocity, self.isotopes.isotopes_data[isotopes[l]].profile, label = isotopes[l], color = colours[l], linewidth = 2)
-	
-			#Setting figure parameters
-			plt.legend()
-			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
-			plt.ylabel('Mass fraction')
-			plt.ylim(0, 1)
-			if self.model_name != None:
-				plt.title(self.model_name + ' Isotopic Abundances')
-			else:
-				plt.title('Isotopic Abundances')
-			plt.gca().set_xlim(left=0)
-			plt.tight_layout()
-			plt.show()
-		except:
-			#Exception should only display when there has not been a isotopes file imported to the instance of the class
-			print('Invalid isotope')
-
-	def lightcurve_plot(self):
-		try:
-			#File check - this should fail if there is no imported lightcurve file and trigger the exception
-			check = self.lightcurve.epochs[0]
-
-			fig = plt.figure(figsize = (12, 6))
-			ax = fig.add_subplot(1, 1, 1)
-			ax.plot(self.lightcurve.epochs, self.lightcurve.lc.lum, color = '#C70039', linewidth = 2)
-	
-			plt.xlabel('Days relative to explosion')
-			plt.ylabel(r'Luminosity ($erg$ $s^{-1}$)')
-			if self.model_name != None:
-				plt.title(self.model_name + ' UVOIR Lightcurve')
-			else:
-				plt.title('UVOIR Lightcurve')
-			plt.tight_layout()
-			plt.show()
-
-		except:
-			#Exception should only display when there has not been a lightcurve file imported to the instance of the class
-			print(text.RED + 'No associated lightcurve.dat file' + text.END)
-			return
-
-	def lightcurves_early_plot(self):
-		try:
-			check = self.lightcurves_early.epochs[0]
-
-			fig = plt.figure(figsize = (12, 6))
-			ax = fig.add_subplot(1, 1, 1)
-	
-			ax.plot(self.lightcurves_early.epochs, self.lightcurves_early.UBVR.U.AB, color = U_colour, label = 'U')
-			ax.plot(self.lightcurves_early.epochs, self.lightcurves_early.UBVR.B.AB, color = B_colour, label = 'B')
-			ax.plot(self.lightcurves_early.epochs, self.lightcurves_early.UBVR.V.AB, color = V_colour, label = 'V')
-			ax.plot(self.lightcurves_early.epochs, self.lightcurves_early.UBVR.R.AB, color = R_colour, label = 'R')
-	
-			plt.gca().invert_yaxis()
-			plt.xlabel('Days since explosion')
-			plt.ylabel('Absolute AB magnitude')
-			if self.model_name != None:
-				plt.title(self.model_name + ' Early Lightcurves')
-			else:
-				plt.title('Early Lightcurves')
-			plt.tight_layout()
-			plt.legend()
-			plt.show()
-		except:
-			#Exception should only display when there has not been an early lightcurves file imported to the instance of the class
-			print(text.RED + 'No associated lightcurves_early.dat file' + text.END)
-			return
-
-	def density_plot(self):
-		try:
-			check = self.density.velocity[0]
-
-			fig = plt.figure(figsize = (12, 6))
-			ax = fig.add_subplot(1, 1, 1)
-
-			ax.plot(self.density.velocity, self.density.density)
-
-			plt.xlabel(r'Velocity ($km$ $s^{-1}$)')
-			plt.ylabel(r'Density ($g$ $cm^{-3}$)')
-			if self.model_name != None:
-				plt.title(self.model_name + ' Density')
-			else:
-				plt.title('Density')
-			plt.tight_layout()
-			plt.show()
-
-		except:
-			#Exception should only display when there has not been a density file imported to the instance of the class
-			print(text.RED + 'No associated density.dat file' + text.END)
-			return
-
-	def density_plot_epoch(self, day):
-		try:
-			check = self.density.velocity[0]
-			check = self.density.radius0[0]
-
-			t = day * 24*3600
-			sf = []
-			for i in range(len(self.density.radius0)):
-				sf.append( (self.density.radius0[i])**3/(self.density.radius0[i] + t*self.density.velocity[i])**3 )
-
-			new_density = []
-			for i in range(len(self.density.density)):
-				new_density.append(self.density.density[i] * sf[i])
-
-			plt.plot(self.density.velocity, new_density)
-			plt.show()
-
-		except:
-			#Exception should only display when there has not been a density file imported to the instance of the class or the assingment of radius0 has gone wrong
-			print(text.RED + 'No associated density.dat file or there has been an issue callibrating the inital radii' + text.END)
-			return
-
 def load_HESMA_model(model_name, local = False):
 	if not local:
 		download_HESMA_data(model_name)
