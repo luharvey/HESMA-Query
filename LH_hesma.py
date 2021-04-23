@@ -28,18 +28,18 @@ class text:
 	UNDERLINE = '\033[4m'
 	END = '\033[0m'
 
-creds = glob.glob('./.HESMA_credentials')
+root_path = os.path.dirname(__file__)
+creds = glob.glob(root_path + '/.HESMA_credentials')
+
 if len(creds) == 0:
 	print('')
 	username = input('HESMA Username: ')
 	password = getpass('HESMA Password: ')
 	print('')
-	root_path = os.getcwd()
 
-	with open('./.HESMA_credentials', 'w') as file:
+	with open(root_path + '/.HESMA_credentials', 'w') as file:
 		file.write( str(base64.b64encode(username.encode("utf-8"))) + ' \n')
 		file.write( str(base64.b64encode(password.encode("utf-8"))) + ' \n')
-		file.write(root_path + ' \n')
 
 payload = {}
 
@@ -48,7 +48,7 @@ B_colour = '#00CFE3'
 V_colour = '#44CF02'
 R_colour = '#EB1500'
 
-with open('./.HESMA_credentials', 'r') as file:
+with open(root_path + '/.HESMA_credentials', 'r') as file:
 	lines = file.readlines()
 
 	un = lines[0].split(sep = ' ')[0]
@@ -56,8 +56,6 @@ with open('./.HESMA_credentials', 'r') as file:
 
 	pw = lines[1].split(sep = ' ')[0]
 	payload['p'] = base64.b64decode(pw[2:len(pw)-1]).decode("utf-8")
-
-	root_path = lines[2].split(sep = ' ')[0]
 
 #Check for relevant folders
 if len(glob.glob(root_path + '/spectra/')) == 0:
@@ -294,7 +292,7 @@ class isotopes():
 				elements_write[elem] = species()
 				elements_write[elem].profile = np.interp(write_vel, self.velocity, self.elements_data[elem].profile)
 
-			with open('FULL_ABUND_' + str(filename), 'w') as file:
+			with open('full_abund_' + str(filename), 'w') as file:
 				file.write('Index ')
 				for elem in elements:
 					file.write(str(elem) + ' ')
@@ -458,7 +456,7 @@ class density():
 			vel_write = np.linspace(np.amin(self.velocity), np.amax(self.velocity), shells+1)
 			den_write = np.interp(vel_write, self.velocity, new_density)
 			
-			with open('FULL_DEN_' + str(filename), 'w') as file:
+			with open('full_den_' + str(filename), 'w') as file:
 				file.write(str(day) + ' day\n\n')
 
 				for i in range(shells+1):
